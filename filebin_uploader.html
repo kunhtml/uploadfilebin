@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Filebin.net Uploader</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        h1 {
+            text-align: center;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            padding: 2rem;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+        label {
+            font-weight: bold;
+        }
+        input[type="text"],
+        input[type="file"] {
+            padding: 0.5rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        button {
+            padding: 0.75rem;
+            border: none;
+            border-radius: 4px;
+            background-color: #007bff;
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #status {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 4px;
+            text-align: center;
+            word-wrap: break-word;
+        }
+        .success {
+            background-color: #e9f7ef;
+            color: #146c43;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #842029;
+        }
+        .info {
+            background-color: #eef7ff;
+            color: #0a58ca;
+        }
+        small {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: -0.75rem;
+        }
+        .bin-container {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .bin-container input {
+            flex-grow: 1;
+        }
+        #randomBinBtn {
+            background-color: #6c757d;
+        }
+        #randomBinBtn:hover {
+            background-color: #5a6268;
+        }
+        #copyBtn {
+            background-color: #28a745;
+            margin-top: 1rem;
+        }
+        #copyBtn:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Upload a File to Filebin.net</h1>
+
+    <form id="uploadForm">
+        <label for="bin">Bin Name:</label>
+        <div class="bin-container">
+            <input type="text" id="bin" name="bin" required placeholder="e.g., my-project-files">
+            <button type="button" id="randomBinBtn">Generate Random</button>
+        </div>
+        <small>A "bin" is like a folder for your file. A new one will be created if it doesn't exist.</small>
+
+        <label for="file">Choose file(s):</label>
+        <input type="file" id="file" name="file" required multiple>
+
+        <button type="submit">Upload</button>
+    </form>
+
+    <div id="status"></div>
+
+    <script>
+        const uploadForm = document.getElementById('uploadForm');
+        const fileInput = document.getElementById('file');
+        const binInput = document.getElementById('bin');
+        const statusDiv = document.getElementById('status');
+        const randomBinBtn = document.getElementById('randomBinBtn');
+
+        function generateRandomBinName(length = 12) {
+            const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+            let result = '';
+            for (let i = 0; i < length; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
+
+        randomBinBtn.addEventListener('click', () => {
+            binInput.value = generateRandomBinName();
+        });
+
+        // Set initial random bin name on page load
+        binInput.value = generateRandomBinName();
+
+        uploadForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const files = fileInput.files;
+            const bin = binInput.value.trim();
+
+            if (files.length === 0 || !bin) {
+                statusDiv.textContent = 'Please select at least one file and enter a bin name.';
+                statusDiv.className = 'error';
+                return;
+            }
+
+            let timerInterval;
+            let seconds = 0;
+            statusDiv.innerHTML = `Uploading ${files.length} file(s) to bin "${bin}"... <span id="timer">0s</span>`;
+            statusDiv.className = 'info';
+            timerInterval = setInterval(() => {
+                seconds++;
+                document.getElementById('timer').textContent = `${seconds}s`;
+            }, 1000);
+
+            const uploadPromises = Array.from(files).map(file => {
+                const formData = new FormData();
+                formData.append('file', file);
+                const url = `https://filebin.net/${bin}/${file.name}`;
+                return fetch(url, {
+                    method: 'POST',
+                    body: formData,
+                }).then(response => response.json().then(data => ({...data, success: response.ok})));
+            });
+
+            try {
+                const results = await Promise.allSettled(uploadPromises); // Use allSettled to handle individual file failures
+                clearInterval(timerInterval);
+
+                let resultsHtml = `✅ All uploads complete in ${seconds} seconds!<br><br>`;
+                const successfulUploads = results.filter(r => r.status === 'fulfilled' && r.value.success);
+
+                if (successfulUploads.length > 0) {
+                    const binUrl = `https://filebin.net/${successfulUploads[0].value.bin.id}`;
+                    resultsHtml += `Bin URL: <a href="${binUrl}" target="_blank">${binUrl}</a><br><button id="copyBtn">Copy Bin URL</button><br><br>`;
+                }
+
+                resultsHtml += results.map(result => {
+                    if (result.status === 'fulfilled' && result.value.success) {
+                        const fileUrl = `https://filebin.net/${result.value.bin.id}/${result.value.file.filename}`;
+                        return `<li>✅ ${result.value.file.filename}: <a href="${fileUrl}" target="_blank">Link</a></li>`;
+                    } else {
+                        const filename = result.status === 'rejected' ? result.reason.filename || 'Unknown file' : 'Unknown file';
+                        return `<li>❌ ${filename}: Upload failed</li>`;
+                    }
+                }).join('');
+
+                statusDiv.innerHTML = `<ul>${resultsHtml}</ul>`;
+                statusDiv.className = 'success';
+
+                if (successfulUploads.length > 0) {
+                    const copyBtn = document.getElementById('copyBtn');
+                    const binUrl = `https://filebin.net/${successfulUploads[0].value.bin.id}`;
+                    copyBtn.addEventListener('click', () => {
+                        navigator.clipboard.writeText(binUrl).then(() => {
+                            copyBtn.textContent = 'Copied!';
+                            setTimeout(() => {
+                                copyBtn.textContent = 'Copy Bin URL';
+                            }, 2000);
+                        }).catch(err => {
+                            console.error('Failed to copy: ', err);
+                            copyBtn.textContent = 'Failed to copy';
+                        });
+                    });
+                }
+
+                uploadForm.reset();
+                binInput.value = generateRandomBinName(); // Generate new name for next upload
+            } catch (error) {
+                clearInterval(timerInterval);
+                console.error('Upload failed:', error);
+                statusDiv.textContent = '❌ Upload failed. A network error occurred. See the browser console for details.';
+                statusDiv.className = 'error';
+            }
+        });
+    </script>
+
+</body>
+</html>
