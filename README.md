@@ -2,6 +2,9 @@
 
 Đây là một công cụ đơn giản dựa trên trình duyệt cho phép bạn dễ dàng tải lên một hoặc nhiều tệp lên [Filebin.net](https://filebin.net/).
 
+Dùng nó làm chỗ chứa file tạm thời, hoặc dùng để chia sẻ file với người khác
+
+
 ## Tính năng
 
 *   **Tải lên nhiều tệp:** Chọn và tải lên nhiều tệp cùng một lúc.
@@ -24,3 +27,4 @@
 
 *   Filebin.net là một dịch vụ tạm thời. Các tệp được tải lên sẽ tự động bị xóa sau một khoảng thời gian nhất định (thường là 6 ngày).
 *   Công cụ này chạy hoàn toàn trong trình duyệt của bạn và không gửi bất kỳ dữ liệu nào đến máy chủ trung gian.
+*   Hoặc dùng online tại đây https://nice-moon-4095.puter.site/  
